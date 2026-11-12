@@ -3,12 +3,34 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
+# --- НАЛАШТУВАННЯ З ХМАРИ ---
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 URL_TO_CHECK = os.getenv("URL_TO_CHECK")
 
 CHECK_INTERVAL = 900  # 15 хвилин
 
+# --- МІНІ-ВЕБ-СЕРВЕР ДЛЯ RENDER ТА UPTIMEROBOT ---
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is alive and running!")
+        
+    def log_message(self, format, *args):
+        pass
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server.serve_forever()
+
+server_thread = threading.Thread(target=run_web_server, daemon=True)
+server_thread.start()
+# -----------------------------------------------
 
 def send_telegram_message(chat_id, message):
     """Відправляє повідомлення у чат"""
@@ -18,18 +40,6 @@ def send_telegram_message(chat_id, message):
         requests.post(url, json=payload)
     except Exception as e:
         print(f"Помилка надсилання: {e}")
-
-def get_page_content():
-    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
-    try:
-        response = requests.get(URL_TO_CHECK, headers=headers, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        links = [a.get('href') for a in soup.find_all('a', href=True) if a.get('href')]
-        return soup.get_text(), links
-    except Exception as e:
-        print(f"Помилка завантаження сайту: {e}")
-        return None, None
 
 def get_latest_files():
     """Шукає всі файли у тому порядку, в якому вони йдуть на сторінці (зверху вниз)"""
@@ -41,7 +51,8 @@ def get_latest_files():
         file_extensions = ('.pdf', '.doc', '.docx', '.xls', '.xlsx', '.zip', '.rar')
         found_files = []
         
-        ignore_words = ['temy', 'tema','zavdannya','vidpovidi', 'instrukciya', 'polozhennya', 'zrazok', 'template']
+        # Додано zavdannya та vidpovidi до списку ігнорування
+        ignore_words = ['temy', 'tema', 'instrukciya', 'polozhennya', 'zrazok', 'template', 'zavdannya', 'vidpovidi']
         
         for a in soup.find_all('a', href=True):
             href = a.get('href')
@@ -67,7 +78,7 @@ def get_latest_files():
         return []
 
 def main():
-    print("Бот запущено (з привітанням та автосповіщеннями)...")
+    print("Бот запущено (з фільтрацією слів та вебсервером)...")
 
     initial_files = get_latest_files()
     known_urls = {f['url'] for f in initial_files}
@@ -92,7 +103,6 @@ def main():
                     if chat_id:
                         active_chats.add(chat_id)
                         
-                        # Команда /start
                         if text == "/start":
                             welcome_msg = (
                                 "👋 <b>Привіт! Я бот-монітор олімпіадних документів.</b>\n\n"
