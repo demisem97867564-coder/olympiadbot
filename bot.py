@@ -6,13 +6,13 @@ from urllib.parse import urlparse
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# --- НАЛАШТУВАННЯ З ХМАРИ ---
+
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 URL_TO_CHECK = os.getenv("URL_TO_CHECK")
 
-CHECK_INTERVAL = 900  # 15 хвилин
+CHECK_INTERVAL = 900 
 
-# --- МІНІ-ВЕБ-СЕРВЕР ДЛЯ RENDER ТА UPTIMEROBOT ---
+
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -30,7 +30,7 @@ def run_web_server():
 
 server_thread = threading.Thread(target=run_web_server, daemon=True)
 server_thread.start()
-# -----------------------------------------------
+
 
 def send_telegram_message(chat_id, message):
     """Відправляє повідомлення у чат"""
@@ -51,7 +51,7 @@ def get_latest_files():
         file_extensions = ('.pdf', '.doc', '.docx', '.xls', '.xlsx', '.zip', '.rar')
         found_files = []
         
-        # Додано zavdannya та vidpovidi до списку ігнорування
+       
         ignore_words = ['temy', 'tema', 'instrukciya', 'polozhennya', 'zrazok', 'template', 'zavdannya', 'vidpovidi']
         
         for a in soup.find_all('a', href=True):
@@ -88,7 +88,7 @@ def main():
     active_chats = set()
 
     while True:
-        # 1. Перевіряємо команди від користувачів
+      
         try:
             updates_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={last_update_id + 1}&timeout=1"
             response = requests.get(updates_url, timeout=2).json()
@@ -147,7 +147,6 @@ def main():
         except Exception as e:
             print(f"Помилка команд: {e}")
 
-        # 2. Таймер планової перевірки (15 хвилин)
         time.sleep(1)
         check_timer += 1
 
